@@ -1,0 +1,107 @@
+{
+    "app-id": "com.refi64.Musivid",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "3.32",
+    "sdk": "org.gnome.Sdk",
+    "command": "musivid",
+    "finish-args": [
+        "--env=G_DEBUG=fatal-criticals",
+        "--env=GTK_DEBUG=interactive",
+        "--share=network",
+        "--share=ipc",
+        "--socket=x11",
+        "--socket=wayland",
+        "--filesystem=xdg-run/dconf",
+        "--filesystem=~/.config/dconf:ro",
+        "--talk-name=ca.desrt.dconf",
+        "--env=DCONF_USER_CONFIG_DIR=.config/dconf"
+    ],
+    "build-options": {
+        "cflags": "-O2 -g",
+        "cxxflags": "-O2 -g",
+        "env": {
+            "V": "1"
+        }
+    },
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/man",
+        "/share/doc",
+        "/share/gtk-doc",
+        "/share/man",
+        "/share/pkgconfig",
+        "*.la",
+        "*.a"
+    ],
+    "modules": [
+        {
+            "name": "gst-plugins-ugly",
+            "buildsystem": "meson",
+            "config-opts": [
+                "-Dx264=enabled",
+
+                "-Dasfdemux=disabled",
+                "-Ddvdlpcmdec=disabled",
+                "-Ddvdsub=disabled",
+                "-Drealmedia=disabled",
+                "-Dxingmux=disabled",
+                "-Da52dec=disabled",
+                "-Damrnb=disabled",
+                "-Damrwbdec=disabled",
+                "-Dcdio=disabled",
+                "-Ddvdread=disabled",
+                "-Dmpeg2dec=disabled",
+                "-Dsidplay=disabled",
+
+                "-Dgobject-cast-checks=disabled",
+                "-Dglib-asserts=disabled",
+                "-Dglib-checks=disabled"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-1.14.4.tar.xz",
+                    "sha256": "ac02d837f166c35ff6ce0738e281680d0b90052cfb1f0255dcf6aaca5f0f6d23"
+                }
+            ],
+            "modules": [
+                {
+                    "name": "nasm",
+                    "sources": [
+                        {
+                            "type": "archive",
+                            "url": "https://www.nasm.us/pub/nasm/releasebuilds/2.14.02/nasm-2.14.02.tar.xz",
+                            "sha256": "e24ade3e928f7253aa8c14aa44726d1edf3f98643f87c9d72ec1df44b26be8f5"
+                        }
+                    ]
+                },
+                {
+                    "name" : "x264",
+                    "config-opts" : [
+                        "--enable-shared",
+                        "--disable-lavf"
+                    ],
+                    "sources" : [
+                        {
+                            "type" : "archive",
+                            "url" : "https://download.videolan.org/x264/snapshots/x264-snapshot-20190426-2245-stable.tar.bz2",
+                            "sha256" : "f8d2d90056dce1b50b13ba605a850df0caf5a63619cc57c77264915a6d1a35b6"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "musivid",
+            "builddir": true,
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "file:///home/ryan/code/musivid"
+                }
+            ]
+        }
+    ]
+}

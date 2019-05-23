@@ -1,0 +1,7 @@
+data/com.refi64.Musivid.desktop.in
+data/com.refi64.Musivid.appdata.xml.in
+data/com.refi64.Musivid.gschema.xml
+src/musivid-window.ui
+src/main.c
+src/musivid-window.c
+
