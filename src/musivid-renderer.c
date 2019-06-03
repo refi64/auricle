@@ -24,6 +24,13 @@
 #include <gst/app/app.h>
 #include <gst/video/video.h>
 
+typedef struct _MusividRendererPadProbe MusividRendererPadProbe;
+
+struct _MusividRendererPadProbe {
+  GstPad *pad;
+  guint   id;
+};
+
 typedef struct _MusividRendererFileData MusividRendererFileData;
 
 struct _MusividRendererFileData
@@ -33,6 +40,7 @@ struct _MusividRendererFileData
   GstElement *src;
   GstElement *sink;
   GList      *request_pads;
+  GList      *pad_probes;
   gboolean    is_eos;
   gboolean    emitted_finished_progress;
 };
@@ -50,6 +58,14 @@ musivid_renderer_file_data_destroy (MusividRendererFileData *data)
     }
 
   g_list_free (data->request_pads);
+
+  for (GList *l = data->pad_probes; l != NULL; l = l->next)
+    {
+      MusividRendererPadProbe *probe = l->data;
+      gst_pad_remove_probe (probe->pad, probe->id);
+    }
+
+  g_list_free_full (data->pad_probes, g_free);
 
   g_clear_pointer (&data->src, gst_object_unref);
   g_clear_pointer (&data->sink, gst_object_unref);
@@ -259,7 +275,7 @@ on_bus_message (GstBus     *bus,
     case GST_MESSAGE_EOS:
       self->bus_watch_id = 0;
       musivid_show_notification ("Render complete");
-      g_signal_emit (self, COMPLETE, 0);
+      /* g_signal_emit (self, COMPLETE, 0); */
       return FALSE;
     default:
       break;
@@ -418,6 +434,19 @@ on_downstream_sink_pad_event (GstPad          *pad,
 }
 
 void
+add_downstream_event_probe (GstPad                  *pad,
+                            GstPadProbeCallback      callback,
+                            MusividRendererFileData *data)
+{
+  guint id = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, callback, data, NULL);
+
+  MusividRendererPadProbe *probe = g_new (MusividRendererPadProbe, 1);
+  probe->pad = pad;
+  probe->id = id;
+  data->pad_probes = g_list_prepend (data->pad_probes, probe);
+}
+
+void
 musivid_renderer_run (MusividRenderer *self)
 {
   const char *output_directory = musivid_render_options_get_output_directory (self->render_options);
@@ -483,12 +512,9 @@ musivid_renderer_run (MusividRenderer *self)
       data->request_pads = g_list_prepend (data->request_pads, mux_video_pad);
       data->request_pads = g_list_prepend (data->request_pads, mux_audio_pad);
 
-      gst_pad_add_probe (audio_enc_pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
-                         on_downstream_audio_pad_event, data, NULL);
-
+      add_downstream_event_probe (audio_enc_pad, on_downstream_audio_pad_event, data);
       g_autoptr(GstPad) sink_pad = gst_element_get_static_pad (sink, "sink");
-      gst_pad_add_probe (sink_pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
-                         on_downstream_sink_pad_event, data, NULL);
+      add_downstream_event_probe (sink_pad, on_downstream_sink_pad_event, data);
     }
 
   self->progress_timer_id = g_timeout_add (100, on_progress_timer, self);

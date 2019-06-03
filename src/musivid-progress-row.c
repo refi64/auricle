@@ -25,6 +25,7 @@ struct _MusividProgressRow
 {
   GtkListBoxRow parent_instance;
 
+  GtkRevealer    *row_revealer;
   GtkLabel       *row_name;
   GtkLabel       *row_position;
   GtkProgressBar *row_progress;
@@ -146,6 +147,7 @@ musivid_progress_row_class_init (MusividProgressRowClass *klass)
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
   gtk_widget_class_set_template_from_resource (widget_class, "/com/refi64/Musivid/musivid-progress-row.ui");
+  gtk_widget_class_bind_template_child (widget_class, MusividProgressRow, row_revealer);
   gtk_widget_class_bind_template_child (widget_class, MusividProgressRow, row_name);
   gtk_widget_class_bind_template_child (widget_class, MusividProgressRow, row_position);
   gtk_widget_class_bind_template_child (widget_class, MusividProgressRow, row_progress);
@@ -220,18 +222,27 @@ musivid_progress_row_init (MusividProgressRow *self)
   g_signal_connect (self, "notify::duration", G_CALLBACK (on_property_notify), NULL);
 }
 
-
-
-void musivid_progress_row_set_position (MusividProgressRow *self,
-                                        gint64              position)
+void
+musivid_progress_row_set_position (MusividProgressRow *self,
+                                   gint64              position)
 {
   g_debug ("Set position of %s to %"G_GINT64_FORMAT, self->name, position);
   musivid_progress_row_set_position_notify (self, position, TRUE);
 }
 
-void musivid_progress_row_set_duration (MusividProgressRow *self,
-                                        gint64              duration)
+void
+musivid_progress_row_set_duration (MusividProgressRow *self,
+                                   gint64              duration)
 {
   musivid_progress_row_set_duration_notify (self, duration, TRUE);
+}
+
+void
+musivid_progress_row_hide (MusividProgressRow *self)
+{
+  gtk_revealer_set_reveal_child (self->row_revealer, FALSE);
+
+  GtkStyleContext *style_context = gtk_widget_get_style_context (GTK_WIDGET (self));
+  gtk_style_context_add_class (style_context, "no-padding");
 }
 

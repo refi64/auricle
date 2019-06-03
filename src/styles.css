@@ -3,3 +3,7 @@ headerbar {
   border-top-right-radius: 7px;
 }
 
+.no-padding {
+  padding: 0;
+}
+

@@ -35,5 +35,7 @@ void musivid_progress_row_set_position (MusividProgressRow *self,
 void musivid_progress_row_set_duration (MusividProgressRow *self,
                                         gint64              duration);
 
+void musivid_progress_row_hide (MusividProgressRow *self);
+
 G_END_DECLS
 

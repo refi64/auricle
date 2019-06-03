@@ -124,7 +124,7 @@ on_progress_updated (MusividRenderer *renderer,
 
       if (p->finished)
         {
-          gtk_widget_set_visible (GTK_WIDGET (row), FALSE);
+          musivid_progress_row_hide (row);
         }
       else
         {
