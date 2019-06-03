@@ -152,6 +152,22 @@ musivid_open_add_music_dialog_action (GSimpleAction *action,
     }
 }
 
+static gboolean
+goto_main_on_idle (gpointer udata)
+{
+  MusividWindow *self = MUSIVID_WINDOW (udata);
+  musivid_window_goto (self, "main");
+  return FALSE;
+}
+
+static void
+on_render_complete (MusividRenderer *renderer,
+                    gpointer         udata)
+{
+  // Avoid destroyed the renderer while we're inside its signal.
+  g_idle_add (goto_main_on_idle, udata);
+}
+
 static void
 musivid_window_goto (MusividWindow *self,
                      const char    *child)
@@ -161,6 +177,8 @@ musivid_window_goto (MusividWindow *self,
       g_warn_if_fail (self->renderer == NULL);
       self->renderer = musivid_renderer_new (musivid_image_section_get_pixbuf (self->image_section),
                                              self->render_options);
+
+      g_signal_connect (self->renderer, "complete", G_CALLBACK (on_render_complete), self);
 
       g_autoptr(GList) files = musivid_music_table_get_files (self->music_table);
       for (GList *l = files; l != NULL; l = l->next)

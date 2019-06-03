@@ -24,6 +24,37 @@
 #include <gst/app/app.h>
 #include <gst/video/video.h>
 
+typedef struct _MusividRendererFileData MusividRendererFileData;
+
+struct _MusividRendererFileData
+{
+  MusividMusicFile *file;
+
+  GstElement *src;
+  GstElement *sink;
+  GList      *request_pads;
+  gboolean    is_eos;
+  gboolean    emitted_finished_progress;
+};
+
+static void
+musivid_renderer_file_data_destroy (MusividRendererFileData *data)
+{
+  g_clear_object (&data->file);
+
+  for (GList *l = data->request_pads; l != NULL; l = l->next)
+    {
+      g_autoptr(GstPad) pad = GST_PAD (g_steal_pointer (&l->data));
+      g_autoptr(GstElement) parent = gst_pad_get_parent_element (pad);
+      gst_element_release_request_pad (parent, pad);
+    }
+
+  g_list_free (data->request_pads);
+
+  g_clear_pointer (&data->src, gst_object_unref);
+  g_clear_pointer (&data->sink, gst_object_unref);
+}
+
 struct _MusividRenderer
 {
   GObject parent_instance;
@@ -31,9 +62,7 @@ struct _MusividRenderer
   GdkPixbuf            *pixbuf;
   MusividRenderOptions *render_options;
 
-  GPtrArray  *files;
-  GPtrArray  *file_dec_elements;
-  GPtrArray  *file_enc_elements;
+  GPtrArray  *file_data;
   GstElement *pipeline;
   guint       bus_watch_id;
   guint       progress_timer_id;
@@ -53,6 +82,7 @@ static GParamSpec *properties [N_PROPS];
 enum {
   SIGNAL_0,
   PROGRESS_UPDATE,
+  COMPLETE,
   N_SIGNALS
 };
 
@@ -75,9 +105,6 @@ musivid_renderer_finalize (GObject *object)
 
   g_clear_object (&self->pixbuf);
   g_clear_object (&self->render_options);
-  g_clear_pointer (&self->files, g_ptr_array_unref);
-  g_clear_pointer (&self->file_dec_elements, g_ptr_array_unref);
-  g_clear_pointer (&self->file_enc_elements, g_ptr_array_unref);
 
   if (self->bus_watch_id != 0)
     {
@@ -90,6 +117,8 @@ musivid_renderer_finalize (GObject *object)
       g_source_remove (self->progress_timer_id);
       self->progress_timer_id = 0;
     }
+
+  g_clear_pointer (&self->file_data, g_ptr_array_unref);
 
   g_debug ("Destroying renderer");
   gst_element_set_state (self->pipeline, GST_STATE_NULL);
@@ -185,21 +214,32 @@ musivid_renderer_class_init (MusividRendererClass *klass)
                   g_cclosure_marshal_generic,
                   G_TYPE_NONE,
                   1, G_TYPE_POINTER);
+
+  signals [COMPLETE] =
+    g_signal_new ("complete",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL,
+                  NULL,
+                  g_cclosure_marshal_generic,
+                  G_TYPE_NONE,
+                  0);
 }
 
 static void
 musivid_renderer_init (MusividRenderer *self)
 {
-  self->files = g_ptr_array_new_with_free_func (g_object_unref);
-  self->file_dec_elements = g_ptr_array_new ();
-  self->file_enc_elements = g_ptr_array_new ();
+  self->file_data = g_ptr_array_new_with_free_func ((GDestroyNotify) musivid_renderer_file_data_destroy);
 }
 
 void
 musivid_renderer_take_file (MusividRenderer  *self,
                             MusividMusicFile *file)
 {
-  g_ptr_array_add (self->files, file);
+  MusividRendererFileData *data = g_new0 (MusividRendererFileData, 1);
+  data->file = file;
+  g_ptr_array_add (self->file_data, data);
 }
 
 static gboolean
@@ -218,7 +258,8 @@ on_bus_message (GstBus     *bus,
       // Fallthrough.
     case GST_MESSAGE_EOS:
       self->bus_watch_id = 0;
-      g_print ("Hit EOS\n");
+      musivid_show_notification ("Render complete");
+      g_signal_emit (self, COMPLETE, 0);
       return FALSE;
     default:
       break;
@@ -245,38 +286,49 @@ on_progress_timer (gpointer udata)
 {
   MusividRenderer *self = MUSIVID_RENDERER (udata);
 
-  if (self->bus_watch_id == 0)
-    {
-      // Likely hit EOS.
-      self->progress_timer_id = 0;
-      return G_SOURCE_REMOVE;
-    }
-
   g_autoptr(GstQuery) position_query = gst_query_new_position (GST_FORMAT_TIME);
   g_autoptr(GstQuery) duration_query = gst_query_new_duration (GST_FORMAT_TIME);
 
   GList *progress = NULL;
 
-  for (int i = 0; i < self->files->len; i++)
+  for (int i = 0; i < self->file_data->len; i++)
     {
-      GstElement *dec = GST_ELEMENT (g_ptr_array_index (self->file_dec_elements, i));
-      GstElement *enc = GST_ELEMENT (g_ptr_array_index (self->file_enc_elements, i));
-
-      if (!gst_element_query (enc, position_query) || !gst_element_query (dec, duration_query))
-        continue;
+      MusividRendererFileData *data = g_ptr_array_index (self->file_data, i);
 
       MusividRenderProgress *p = g_new0 (MusividRenderProgress, 1);
       p->index = i;
-      gst_query_parse_position (position_query, NULL, &p->position);
-      gst_query_parse_duration (duration_query, NULL, &p->duration);
-      if (p->position > p->duration)
-        p->position = p->duration;
+
+      if (data->is_eos)
+        {
+          if (data->emitted_finished_progress)
+            continue;
+
+          p->finished = TRUE;
+          data->emitted_finished_progress = TRUE;
+        }
+      else
+        {
+          if (!gst_element_query (data->sink, position_query) || !gst_element_query (data->src, duration_query))
+            continue;
+
+          gst_query_parse_position (position_query, NULL, &p->position);
+          gst_query_parse_duration (duration_query, NULL, &p->duration);
+          if (p->position > p->duration)
+            p->position = p->duration;
+        }
 
       progress = g_list_prepend (progress, p);
     }
 
   g_signal_emit (self, signals[PROGRESS_UPDATE], 0, progress);
   g_list_free_full (progress, g_free);
+
+  if (self->bus_watch_id == 0)
+    {
+      // Likely hit EOS.
+      self->progress_timer_id = 0;
+      return G_SOURCE_REMOVE;
+    }
 
   return G_SOURCE_CONTINUE;
 }
@@ -321,34 +373,48 @@ MusividMusicFile *
 musivid_renderer_get_file (MusividRenderer *self,
                            int              index)
 {
-  if (index >= self->files->len)
+  if (index >= self->file_data->len)
     return NULL;
-  return g_ptr_array_index (self->files, index);
+  return ((MusividRendererFileData *) g_ptr_array_index (self->file_data, index))->file;
 }
 
-static GList *global_stuff = NULL;
-static GstElement *global_pipeline = NULL;
 static GstPadProbeReturn
-on_downstream_event (GstPad          *pad,
-                     GstPadProbeInfo *info,
-                     gpointer         udata)
+on_downstream_audio_pad_event (GstPad          *pad,
+                               GstPadProbeInfo *info,
+                               gpointer         udata)
 {
-  GstElement *el = GST_ELEMENT (udata);
+  MusividRendererFileData *data = udata;
   GstEvent *evt = GST_EVENT (info->data);
+
   if (GST_EVENT_TYPE (evt) == GST_EVENT_EOS)
     {
-      g_info ("Forwarding an EOS event");
-      gst_element_set_state (el, GST_STATE_NULL);
-      gst_bin_remove (GST_BIN (global_pipeline), el);
-      for (GList *l = global_stuff; l != NULL; l = l->next)
-        gst_bin_remove (GST_BIN (global_pipeline), l->data);
-      /* gst_element_send_event (global_mux, gst_event_new_eos ()); */
+      g_info ("Forwarding an EOS event in %s", musivid_music_file_get_result_name (data->file));
+      for (GList *l = data->request_pads; l != NULL; l = l->next) {
+        GstPad *pad = GST_PAD (l->data);
+        gst_pad_send_event (pad, gst_event_new_eos ());
+      }
       return GST_PAD_PROBE_REMOVE;
     }
-  else
+
+  return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
+on_downstream_sink_pad_event (GstPad          *pad,
+                              GstPadProbeInfo *info,
+                              gpointer         udata)
+{
+  MusividRendererFileData *data = udata;
+  GstEvent *evt = GST_EVENT (info->data);
+
+  if (GST_EVENT_TYPE (evt) == GST_EVENT_EOS)
     {
-      return GST_PAD_PROBE_OK;
+      g_info ("Received final EOS for %s", musivid_music_file_get_result_name (data->file));
+      data->is_eos = TRUE;
+      return GST_PAD_PROBE_REMOVE;
     }
+
+  return GST_PAD_PROBE_OK;
 }
 
 void
@@ -361,28 +427,27 @@ musivid_renderer_run (MusividRenderer *self)
   g_return_if_fail (self->pixbuf != NULL);
   g_return_if_fail (output_directory != NULL);
   self->pipeline = gst_pipeline_new ("render-pipeline");
-  global_pipeline = self->pipeline;
 
   self->bus_watch_id = gst_bus_add_watch (GST_ELEMENT_BUS (self->pipeline), on_bus_message, self);
 
-  for (int i = 0; i < self->files->len; i++)
+  for (int i = 0; i < self->file_data->len; i++)
     {
-      MusividMusicFile *file = MUSIVID_MUSIC_FILE (g_ptr_array_index (self->files, i));
-      g_info ("Adding %s -> %s to pipeline", musivid_music_file_get_path (file),
-               musivid_music_file_get_result_name (file));
+      MusividRendererFileData *data = g_ptr_array_index (self->file_data, i);
+      g_info ("Adding %s -> %s to pipeline", musivid_music_file_get_path (data->file),
+               musivid_music_file_get_result_name (data->file));
 
       GstElement *image_src = musivid_renderer_create_image_source (self);
       GstElement *image_conv = gst_element_factory_make ("videoconvert", NULL);
       GstElement *image_freeze = gst_element_factory_make ("imagefreeze", NULL);
       GstElement *image_enc = gst_element_factory_make ("x264enc", NULL);
 
-      g_autofree char *output_basename = g_strdup_printf ("%s.mp4", musivid_music_file_get_result_name (file));
+      g_autofree char *output_basename = g_strdup_printf ("%s.mp4", musivid_music_file_get_result_name (data->file));
       g_autofree char *output_path = g_build_filename (output_directory, output_basename, NULL);
 
       GstElement *audio_src = gst_element_factory_make ("filesrc", NULL);
-      g_object_set (audio_src, "location", musivid_music_file_get_path (file), NULL);
+      g_object_set (audio_src, "location", musivid_music_file_get_path (data->file), NULL);
 
-      GstElement *audio_dec = gst_element_factory_make ("decodebin", NULL);
+      GstElement *audio_dec = gst_element_factory_make ("decodebin3", NULL);
 
       GstElement *audio_enc = gst_element_factory_make ("fdkaacenc", NULL);
       g_object_set (audio_enc, "bitrate", audio_bitrate * 1000, NULL);
@@ -398,22 +463,32 @@ musivid_renderer_run (MusividRenderer *self)
                         audio_src, audio_dec, audio_enc,
                         mux, sink, NULL);
 
-      gst_element_link_many (image_src, image_conv, image_freeze, image_enc, mux, NULL);
+      gst_element_link_many (image_src, image_conv, image_freeze, image_enc, NULL);
       gst_element_link (audio_src, audio_dec);
-      gst_element_link (audio_enc, mux);
       gst_element_link (mux, sink);
+
+      GstPad *mux_audio_pad = gst_element_get_request_pad (mux, "audio_%u");
+      GstPad *mux_video_pad = gst_element_get_request_pad (mux, "video_%u");
+
+      g_autoptr(GstPad) audio_enc_pad = gst_element_get_static_pad (audio_enc, "src");
+      g_autoptr(GstPad) image_enc_pad = gst_element_get_static_pad (image_enc, "src");
+
+      gst_pad_link (audio_enc_pad, mux_audio_pad);
+      gst_pad_link (image_enc_pad, mux_video_pad);
 
       g_signal_connect (audio_dec, "pad-added", G_CALLBACK (on_dec_pad_added), audio_enc);
 
-      g_ptr_array_add (self->file_dec_elements, audio_dec);
-      g_ptr_array_add (self->file_enc_elements, sink);
+      data->src = g_object_ref (audio_dec);
+      data->sink = g_object_ref (sink);
+      data->request_pads = g_list_prepend (data->request_pads, mux_video_pad);
+      data->request_pads = g_list_prepend (data->request_pads, mux_audio_pad);
 
-      /* global_stuff = g_list_append (global_stuff, image_enc); */
-      global_stuff = g_list_append (global_stuff, audio_enc);
-      /* global_stuff = g_list_append (global_stuff, mux); */
+      gst_pad_add_probe (audio_enc_pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+                         on_downstream_audio_pad_event, data, NULL);
 
-      g_autoptr(GstPad) audio_pad = gst_element_get_static_pad (audio_enc, "src");
-      gst_pad_add_probe (audio_pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, on_downstream_event, image_enc, NULL);
+      g_autoptr(GstPad) sink_pad = gst_element_get_static_pad (sink, "sink");
+      gst_pad_add_probe (sink_pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+                         on_downstream_sink_pad_event, data, NULL);
     }
 
   self->progress_timer_id = g_timeout_add (100, on_progress_timer, self);

@@ -122,8 +122,15 @@ on_progress_updated (MusividRenderer *renderer,
       MusividRenderProgress *p = l->data;
       MusividProgressRow *row = MUSIVID_PROGRESS_ROW (g_ptr_array_index (self->progress_rows, p->index));
 
-      musivid_progress_row_set_position (row, p->position);
-      musivid_progress_row_set_duration (row, p->duration);
+      if (p->finished)
+        {
+          gtk_widget_set_visible (GTK_WIDGET (row), FALSE);
+        }
+      else
+        {
+          musivid_progress_row_set_position (row, p->position);
+          musivid_progress_row_set_duration (row, p->duration);
+        }
     }
 }
 

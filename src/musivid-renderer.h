@@ -45,9 +45,10 @@ void musivid_renderer_run (MusividRenderer *self);
 typedef struct MusividRenderProgress MusividRenderProgress;
 
 struct MusividRenderProgress {
-  int    index;
-  gint64 position;
-  gint64 duration;
+  int      index;
+  gint64   position;
+  gint64   duration;
+  gboolean finished;
 };
 
 G_END_DECLS
