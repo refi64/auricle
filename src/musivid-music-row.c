@@ -30,6 +30,7 @@ struct _MusividMusicRow
   GtkLabel    *music_row_basename;
   GtkLabel    *music_row_result_name;
   GtkButton   *music_row_delete;
+  GtkImage    *music_row_expand_icon;
   GtkRevealer *music_row_revealer;
   GtkGrid     *music_row_tag_grid;
 
@@ -47,6 +48,7 @@ enum {
   PROP_0,
   PROP_PATH,
   PROP_TEMPLATE,
+  PROP_TEMPLATE_OVERRIDE,
   N_PROPS
 };
 
@@ -320,6 +322,7 @@ musivid_music_row_class_init (MusividMusicRowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_basename);
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_result_name);
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_delete);
+  gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_expand_icon);
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_revealer);
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_tag_grid);
 
@@ -343,6 +346,16 @@ musivid_music_row_class_init (MusividMusicRowClass *klass)
                           G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_TEMPLATE,
                                    properties [PROP_TEMPLATE]);
+
+  properties [PROP_TEMPLATE_OVERRIDE] =
+    g_param_spec_string ("template-override",
+                         "Template override",
+                         "Template override",
+                         "",
+                         (G_PARAM_READWRITE |
+                          G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_TEMPLATE_OVERRIDE,
+                                   properties [PROP_TEMPLATE_OVERRIDE]);
 
   signals [DELETE_REQUESTED] =
     g_signal_new ("delete-requested",
@@ -392,5 +405,11 @@ musivid_music_row_toggle (MusividMusicRow *self)
 {
   gboolean current = gtk_revealer_get_reveal_child (self->music_row_revealer);
   gtk_revealer_set_reveal_child (self->music_row_revealer, !current);
+
+  GtkStyleContext *style_context = gtk_widget_get_style_context (GTK_WIDGET (self->music_row_expand_icon));
+  if (current)
+    gtk_style_context_remove_class (style_context, "rotate");
+  else
+    gtk_style_context_add_class (style_context, "rotate");
 }
 

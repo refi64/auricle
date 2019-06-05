@@ -7,3 +7,11 @@ headerbar {
   padding: 0;
 }
 
+.music-row-expand-icon {
+  transition: -gtk-icon-transform 0.2s ease;
+}
+
+.music-row-expand-icon.rotate {
+  -gtk-icon-transform: rotate(180deg);
+}
+
