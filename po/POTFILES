@@ -1,7 +1,7 @@
-data/com.refi64.Musivid.desktop.in
-data/com.refi64.Musivid.appdata.xml.in
-data/com.refi64.Musivid.gschema.xml
-src/musivid-window.ui
+data/com.refi64.Auricle.desktop.in
+data/com.refi64.Auricle.appdata.xml.in
+data/com.refi64.Auricle.gschema.xml
+src/auricle-window.ui
 src/main.c
-src/musivid-window.c
+src/auricle-window.c
 

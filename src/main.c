@@ -19,8 +19,8 @@
 #include <glib/gi18n.h>
 #include <gst/gst.h>
 
-#include "musivid-config.h"
-#include "musivid-window.h"
+#include "auricle-config.h"
+#include "auricle-window.h"
 
 static void
 on_activate (GtkApplication *app)
@@ -32,10 +32,10 @@ on_activate (GtkApplication *app)
 	window = gtk_application_get_active_window (app);
 	if (window == NULL)
     {
-  		window = GTK_WINDOW (musivid_window_new (app));
+  		window = GTK_WINDOW (auricle_window_new (app));
 
       g_autoptr(GtkCssProvider) provider = gtk_css_provider_new ();
-      gtk_css_provider_load_from_resource (provider, "/com/refi64/Musivid/styles.css");
+      gtk_css_provider_load_from_resource (provider, "/com/refi64/Auricle/styles.css");
       gtk_style_context_add_provider_for_screen (gdk_screen_get_default (), GTK_STYLE_PROVIDER (provider),
                                                  GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
@@ -62,7 +62,7 @@ main (int   argc,
 	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
 	textdomain (GETTEXT_PACKAGE);
 
-	g_autoptr(GtkApplication) app = gtk_application_new ("com.refi64.Musivid", G_APPLICATION_FLAGS_NONE);
+	g_autoptr(GtkApplication) app = gtk_application_new ("com.refi64.Auricle", G_APPLICATION_FLAGS_NONE);
   g_application_set_default (G_APPLICATION (app));
 
 	g_signal_connect (app, "activate", G_CALLBACK (on_activate), NULL);

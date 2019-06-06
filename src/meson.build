@@ -1,20 +1,20 @@
-musivid_sources = [
+auricle_sources = [
   'main.c',
-  'musivid-image-section.c',
-  'musivid-music-file.c',
-  'musivid-music-row.c',
-  'musivid-music-table.c',
-  'musivid-notification.c',
-  'musivid-options-editor.c',
-  'musivid-progress-row.c',
-  'musivid-progress-view.c',
-  'musivid-renderer.c',
-  'musivid-render-options.c',
-  'musivid-utils.c',
-  'musivid-window.c',
+  'auricle-image-section.c',
+  'auricle-music-file.c',
+  'auricle-music-row.c',
+  'auricle-music-table.c',
+  'auricle-notification.c',
+  'auricle-options-editor.c',
+  'auricle-progress-row.c',
+  'auricle-progress-view.c',
+  'auricle-renderer.c',
+  'auricle-render-options.c',
+  'auricle-utils.c',
+  'auricle-window.c',
 ]
 
-musivid_deps = [
+auricle_deps = [
   dependency('gio-2.0', version: '>= 2.50'),
   dependency('gtk+-3.0', version: '>= 3.22'),
   dependency('gstreamer-1.0'),
@@ -24,12 +24,12 @@ musivid_deps = [
 
 gnome = import('gnome')
 
-musivid_sources += gnome.compile_resources('musivid-resources',
-  'musivid.gresource.xml',
-  c_name: 'musivid'
+auricle_sources += gnome.compile_resources('auricle-resources',
+  'auricle.gresource.xml',
+  c_name: 'auricle'
 )
 
-executable('musivid', musivid_sources,
-  dependencies: musivid_deps,
+executable('auricle', auricle_sources,
+  dependencies: auricle_deps,
   install: true,
 )

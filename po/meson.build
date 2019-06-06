@@ -1,1 +1,1 @@
-i18n.gettext('musivid', preset: 'glib')
+i18n.gettext('auricle', preset: 'glib')

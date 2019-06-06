@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/refi64/Auricle">
+    <file>auricle-image-section.ui</file>
+    <file>auricle-music-table.ui</file>
+    <file>auricle-music-row.ui</file>
+    <file>auricle-notification.ui</file>
+    <file>auricle-options-editor.ui</file>
+    <file>auricle-progress-row.ui</file>
+    <file>auricle-progress-view.ui</file>
+    <file>auricle-window.ui</file>
+
+    <file>styles.css</file>
+  </gresource>
+</gresources>
