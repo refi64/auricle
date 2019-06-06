@@ -32,6 +32,7 @@ struct _AuricleWindow
 
   GtkStack            *header_stack;
   GtkStack            *content_stack;
+  GtkPopoverMenu      *menu;
   GtkButton           *render_button_1;
   GtkButton           *render_button_2;
   GtkBox              *main_box;
@@ -76,6 +77,7 @@ auricle_window_class_init (AuricleWindowClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/com/refi64/Auricle/auricle-window.ui");
   gtk_widget_class_bind_template_child (widget_class, AuricleWindow, header_stack);
   gtk_widget_class_bind_template_child (widget_class, AuricleWindow, content_stack);
+  gtk_widget_class_bind_template_child (widget_class, AuricleWindow, menu);
   gtk_widget_class_bind_template_child (widget_class, AuricleWindow, render_button_1);
   gtk_widget_class_bind_template_child (widget_class, AuricleWindow, render_button_2);
   gtk_widget_class_bind_template_child (widget_class, AuricleWindow, main_box);
@@ -211,9 +213,41 @@ auricle_goto_action (GSimpleAction *action,
   auricle_window_goto (self, child);
 }
 
+static void
+auricle_open_menu_action (GSimpleAction *action,
+                          GVariant      *param,
+                          gpointer       udata)
+{
+  AuricleWindow *self = AURICLE_WINDOW (udata);
+
+  g_print ("open menu\n");
+  gtk_popover_popup (GTK_POPOVER (self->menu));
+}
+
+static void
+auricle_about_action (GSimpleAction *action,
+                      GVariant      *param,
+                      gpointer udata)
+{
+  AuricleWindow *self = AURICLE_WINDOW (udata);
+
+  const char *authors[] = {"Ryan Gonzalez", NULL};
+  gtk_show_about_dialog (GTK_WINDOW (self),
+                         "title", "About Auricle",
+                         "program-name", "Auricle",
+                         "logo-icon-name", "com.refi64.Auricle",
+                         "version", PACKAGE_VERSION,
+                         "website", "https://github.com/refi64/auricle",
+                         "authors", authors,
+                         "license-type", GTK_LICENSE_GPL_3_0,
+                         NULL);
+}
+
 static GActionEntry action_entries[] = {
     { "open-add-music-dialog", auricle_open_add_music_dialog_action, NULL, NULL, NULL },
     { "goto", auricle_goto_action, "s", NULL, NULL },
+    { "open-menu", auricle_open_menu_action, NULL, NULL, NULL },
+    { "about", auricle_about_action, NULL, NULL, NULL },
 };
 
 static void

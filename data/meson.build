@@ -32,6 +32,9 @@ endif
 install_data('com.refi64.Auricle.gschema.xml',
   install_dir: join_paths(get_option('datadir'), 'glib-2.0/schemas')
 )
+install_data('com.refi64.Auricle.svg',
+  install_dir: join_paths(get_option('datadir'), 'icons/hicolor/scalable/apps')
+)
 
 compile_schemas = find_program('glib-compile-schemas', required: false)
 if compile_schemas.found()

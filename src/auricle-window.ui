@@ -12,6 +12,11 @@
     <property name="can_focus">False</property>
     <property name="icon_name">go-previous-symbolic</property>
   </object>
+  <object class="GtkImage" id="menu-image">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">open-menu-symbolic</property>
+  </object>
   <template class="AuricleWindow" parent="GtkApplicationWindow">
     <property name="can_focus">False</property>
     <property name="default_width">1024</property>
@@ -64,6 +69,30 @@
             <property name="title">Auricle</property>
             <property name="show_close_button">True</property>
             <child>
+              <object class="GtkButton" id="menu-button">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="action_name">win.open-menu</property>
+                <property name="image">menu-image</property>
+              </object>
+              <packing>
+                <property name="pack_type">end</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="add_song_button">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="receives_default">False</property>
+                <property name="action_name">win.open-add-music-dialog</property>
+                <property name="image">add_image</property>
+              </object>
+              <packing>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkButton" id="render_button_1">
                 <property name="label">Render</property>
                 <property name="visible">True</property>
@@ -76,17 +105,8 @@
                   <class name="suggested-action"/>
                 </style>
               </object>
-            </child>
-            <child>
-              <object class="GtkButton" id="add_song_button">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="receives_default">False</property>
-                <property name="action_name">win.open-add-music-dialog</property>
-                <property name="image">add_image</property>
-              </object>
               <packing>
-                <property name="position">1</property>
+                <property name="position">2</property>
               </packing>
             </child>
           </object>
@@ -159,4 +179,37 @@
       </object>
     </child>
   </template>
+  <object class="GtkPopoverMenu" id="menu">
+    <property name="can_focus">False</property>
+    <property name="relative_to">menu-button</property>
+    <child>
+      <object class="GtkBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="margin_start">10</property>
+        <property name="margin_end">10</property>
+        <property name="margin_top">10</property>
+        <property name="margin_bottom">10</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkModelButton">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <property name="action_name">win.about</property>
+            <property name="text" translatable="yes">About</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="submenu">main</property>
+        <property name="position">1</property>
+      </packing>
+    </child>
+  </object>
 </interface>
