@@ -8,7 +8,7 @@ headerbar {
 }
 
 .music-row-expand-icon {
-  transition: -gtk-icon-transform 0.2s ease;
+  transition: -gtk-icon-transform 0.25s ease;
 }
 
 .music-row-expand-icon.rotate {

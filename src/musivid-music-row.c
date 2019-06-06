@@ -33,11 +33,15 @@ struct _MusividMusicRow
   GtkImage    *music_row_expand_icon;
   GtkRevealer *music_row_revealer;
   GtkGrid     *music_row_tag_grid;
+  GtkSwitch   *music_row_override_switch;
+  GtkRevealer *music_row_override_revealer;
+  GtkRevealer *music_row_override_entry;
 
   GHashTable *template_vars;
 
   char       *path;
   char       *template;
+  char       *template_override;
   GstElement *pipeline;
   guint       bus_watch_id;
 };
@@ -87,6 +91,7 @@ musivid_music_row_finalize (GObject *object)
   g_clear_pointer (&self->template_vars, g_hash_table_unref);
   g_clear_pointer (&self->path, g_free);
   g_clear_pointer (&self->template, g_free);
+  g_clear_pointer (&self->template_override, g_free);
   g_clear_pointer (&self->pipeline, gst_object_unref);
   G_OBJECT_CLASS (musivid_music_row_parent_class)->finalize (object);
 }
@@ -125,6 +130,24 @@ value_to_string (const GValue *value)
     return g_value_dup_string (value);
   else
     return NULL;
+}
+
+static void
+musivid_music_row_update_result_name (MusividMusicRow *self)
+{
+  g_autofree char *result = musivid_substitute (self->template, self->template_vars);
+
+  if (gtk_switch_get_active (self->music_row_override_switch))
+    {
+      char **default_strv = g_new0 (char *, 2);
+      default_strv[0] = g_steal_pointer (&result);
+      g_hash_table_replace (self->template_vars, g_strdup ("default"), g_steal_pointer (&default_strv));
+
+      result = musivid_substitute (self->template_override, self->template_vars);
+      g_hash_table_remove (self->template_vars, "default");
+    }
+
+  gtk_label_set_label (self->music_row_result_name, result);
 }
 
 static void
@@ -167,6 +190,7 @@ musivid_music_row_add_tags (MusividMusicRow *self,
     }
 
   gtk_widget_show_all (GTK_WIDGET (self->music_row_tag_grid));
+  musivid_music_row_update_result_name (self);
 }
 
 static gboolean
@@ -223,13 +247,6 @@ musivid_music_row_update_tags (MusividMusicRow *self)
 }
 
 static void
-musivid_music_row_update_result_name (MusividMusicRow *self)
-{
-  g_autofree char *result = musivid_substitute (self->template, self->template_vars);
-  gtk_label_set_label (self->music_row_result_name, result);
-}
-
-static void
 musivid_music_row_get_property (GObject    *object,
                                 guint       prop_id,
                                 GValue     *value,
@@ -245,6 +262,9 @@ musivid_music_row_get_property (GObject    *object,
       break;
     case PROP_TEMPLATE:
       g_value_set_string (value, self->template);
+      break;
+    case PROP_TEMPLATE_OVERRIDE:
+      g_value_set_string (value, self->template_override);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -303,6 +323,12 @@ musivid_music_row_set_property (GObject      *object,
 
       musivid_music_row_update_result_name (self);
       break;
+    case PROP_TEMPLATE_OVERRIDE:
+      g_free (self->template_override);
+      self->template_override = g_value_dup_string (value);
+
+      musivid_music_row_update_result_name (self);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
@@ -325,6 +351,9 @@ musivid_music_row_class_init (MusividMusicRowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_expand_icon);
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_revealer);
   gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_tag_grid);
+  gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_override_switch);
+  gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_override_revealer);
+  gtk_widget_class_bind_template_child (widget_class, MusividMusicRow, music_row_override_entry);
 
   properties [PROP_PATH] =
     g_param_spec_string ("path",
@@ -386,6 +415,8 @@ musivid_music_row_init (MusividMusicRow *self)
   self->template_vars = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 
   g_signal_connect (self->music_row_delete, "clicked", G_CALLBACK (on_delete_clicked), self);
+  g_object_bind_property (self->music_row_override_switch, "active", self->music_row_override_revealer, "reveal-child", 0);
+  g_object_bind_property (self->music_row_override_entry, "text", self, "template-override", 0);
 }
 
 const char *
