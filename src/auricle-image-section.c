@@ -176,10 +176,15 @@ auricle_image_section_init (AuricleImageSection *self)
 
   g_signal_connect (self->image_chooser, "file-set", G_CALLBACK (on_file_set), self);
 
-  GtkFileFilter *filter = gtk_file_filter_new ();
-  gtk_file_filter_set_name (filter, "Image files");
-  gtk_file_filter_add_mime_type (filter, "image/*");
-  gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (self->image_chooser), filter);
+  GtkFileFilter *image_filter = gtk_file_filter_new ();
+  gtk_file_filter_set_name (image_filter, "Image files");
+  gtk_file_filter_add_mime_type (image_filter, "image/*");
+  gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (self->image_chooser), image_filter);
+
+  GtkFileFilter *all_filter = gtk_file_filter_new ();
+  gtk_file_filter_set_name (all_filter, "All files");
+  gtk_file_filter_add_pattern (all_filter, "*");
+  gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (self->image_chooser), all_filter);
 }
 
 GdkPixbuf *

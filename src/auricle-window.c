@@ -144,6 +144,11 @@ auricle_open_add_music_dialog_action (GSimpleAction *action,
   gtk_file_filter_add_mime_type (filter, "audio/*");
   gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (chooser), filter);
 
+  GtkFileFilter *all_filter = gtk_file_filter_new ();
+  gtk_file_filter_set_name (all_filter, "All files");
+  gtk_file_filter_add_pattern (all_filter, "*");
+  gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (chooser), all_filter);
+
   gtk_file_chooser_set_select_multiple (GTK_FILE_CHOOSER (chooser), TRUE);
 
   if (gtk_native_dialog_run (GTK_NATIVE_DIALOG (chooser)) == GTK_RESPONSE_ACCEPT)
